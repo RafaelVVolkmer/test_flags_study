@@ -59,7 +59,7 @@ void *matrixAdd(void *arg)
 
 ---
 
-> Há também outra versão usando alocação dinâmica em `src/matrix_dynamic.c`, também com com matrizes globais 2D:
+> Há também outra versão usando alocação dinâmica em `src/matrix_dynamic.c`, com ponteiros globais para acessar os elementos posteriormente alocados:
 
 ```c
 #define SIZE 10000
