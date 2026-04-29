@@ -10,7 +10,27 @@ Pergunta respondida:
 >
 > Por quê?
 
-Em C, `a[i][j]` também vira aritmética de endereço. A diferença é que, na versão B, o tipo da matriz carrega mais informação para o compilador: tamanho fixo, stride conhecido, acesso contíguo por linha e três objetos globais distintos. Com isso o GCC consegue provar mais coisas e aplicar otimizações agressivas de loop. Na versão por ponteiros, principalmente sem `restrict`, alinhamento explícito e stride fixo visível, o compilador precisa ser mais conservador.
+É basicamente pointer aliasing.
+
+Na versão com ponteiros e alocação dinâmica, o compilador nem sempre consegue provar que A, B e C
+apontam para regiões de memória diferentes. Nós, lendo o código, sabemos que
+foram alocadas como matrizes separadas, mas essa informação pode não estar clara
+o suficiente dentro do loop quente. Como A, B e C são ponteiros para o mesmo tipo
+(double), o compilador precisa considerar a possibilidade de sobreposição.
+
+Se houver sobreposição, uma escrita em C poderia afetar uma leitura futura de A
+ou B. Por isso, o otimizador precisa ser mais conservador: pode gerar checagens
+de aliasing em runtime, pode versionar o loop, ou pode simplesmente não aplicar
+algumas otimizações agressivas.
+
+Na versão com matrizes globais 2D estáticas, o compilador enxerga melhor a forma
+dos dados: tamanho fixo, stride conhecido, acesso contíguo e três objetos globais
+distintos. Isso dá mais liberdade para vetorização e reordenação dos loops.
+
+O `restrict` serve justamente para dar esse contrato explicitamente ao compilador:
+este ponteiro não será usado para acessar a mesma região de memória que outro
+ponteiro `restrict` incompatível no mesmo escopo. Com isso, a versão por ponteiros
+pode ficar muito mais próxima da versão com matrizes estáticas.
 
 ---
 
