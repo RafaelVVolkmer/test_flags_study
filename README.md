@@ -10,27 +10,72 @@ Pergunta respondida:
 >
 > Por quê?
 
-É basicamente pointer aliasing.
+---
 
-Na versão com ponteiros e alocação dinâmica, o compilador nem sempre consegue provar que A, B e C
-apontam para regiões de memória diferentes. Nós, lendo o código, sabemos que
-foram alocadas como matrizes separadas, mas essa informação pode não estar clara
-o suficiente dentro do loop quente. Como A, B e C são ponteiros para o mesmo tipo
-(double), o compilador precisa considerar a possibilidade de sobreposição.
+A diferença de desempenho não vem de um único fator isolado. Ela é resultado de
+uma combinação entre aliasing, informação de layout, acesso contíguo,
+objetos globais separados, vetorização e transformações de loop.
 
-Se houver sobreposição, uma escrita em C poderia afetar uma leitura futura de A
-ou B. Por isso, o otimizador precisa ser mais conservador: pode gerar checagens
-de aliasing em runtime, pode versionar o loop, ou pode simplesmente não aplicar
-algumas otimizações agressivas.
+Na versão com ponteiros e alocação dinâmica, o compilador tem menos garantias
+sobre a memória acessada por A, B e C. Mesmo que, lendo o código, fique claro que
+as matrizes foram alocadas separadamente, essa informação nem sempre chega de
+forma forte o suficiente ao otimizador dentro do loop principal. Como A, B e C
+são ponteiros para o mesmo tipo, isto é, ponteiros para double, o compilador
+precisa considerar a possibilidade de que duas dessas regiões se sobreponham.
 
-Na versão com matrizes globais 2D estáticas, o compilador enxerga melhor a forma
-dos dados: tamanho fixo, stride conhecido, acesso contíguo e três objetos globais
-distintos. Isso dá mais liberdade para vetorização e reordenação dos loops.
+Esse problema é chamado de pointer aliasing. Se houver sobreposição, uma escrita
+em C poderia alterar um valor que ainda seria lido de A ou B. Por isso, o GCC não
+pode simplesmente assumir que todos os acessos são independentes. Ele precisa ser
+mais conservador: pode gerar checagens de aliasing em tempo de execução, pode
+criar versões diferentes do loop, ou pode deixar de aplicar algumas otimizações
+mais agressivas.
 
-O `restrict` serve justamente para dar esse contrato explicitamente ao compilador:
-este ponteiro não será usado para acessar a mesma região de memória que outro
-ponteiro `restrict` incompatível no mesmo escopo. Com isso, a versão por ponteiros
-pode ficar muito mais próxima da versão com matrizes estáticas.
+Além do aliasing, a versão com ponteiros também pode esconder informações
+importantes sobre o formato dos dados. O compilador pode ter menos certeza sobre
+o stride entre linhas, sobre o alinhamento dos endereços e sobre a regularidade
+do acesso. Mesmo quando o buffer é linear, a expressão por ponteiros comunica
+menos estrutura do que uma matriz 2D estática com dimensões conhecidas.
+
+Na versão com matrizes globais 2D estáticas, a situação é mais favorável para o
+otimizador. As matrizes têm tamanho fixo, stride conhecido, layout contíguo por
+linha e aparecem como três objetos globais distintos. Assim, o compilador consegue
+modelar o acesso como uma função simples de i e j:
+
+    base + (i * SIZE + j) * sizeof(double)
+
+Com esse padrão regular, o GCC tem mais liberdade para aplicar vetorização e
+transformações no ninho de loops. A vetorização permite trocar operações escalares,
+como uma soma de um double por vez, por instruções SIMD que processam mais de um
+elemento por instrução. No assembly, isso aparece como a troca de instruções como
+addsd por instruções como addpd.
+
+Mas o ganho grande não vem apenas do SIMD. O -O3 também pode transformar a ordem
+efetiva dos loops. Em vez de executar conceitualmente:
+
+    rep -> i -> j
+
+ele pode aproximar a execução de algo como:
+
+    i -> rep -> j
+
+quando consegue provar que essa transformação preserva o resultado. Isso melhora
+muito a localidade de cache, porque a mesma faixa da matriz pode ser reutilizada
+enquanto ainda está quente, em vez de varrer gigabytes de dados antes de voltar
+para a mesma região.
+
+O `restrict` entra justamente para dar parte desse contrato explicitamente ao
+compilador. Ao declarar ponteiros como `restrict`, o programador informa que
+aquele ponteiro é o caminho exclusivo para acessar aquela região de memória
+durante aquele escopo. Com isso, a versão baseada em ponteiros passa a oferecer
+mais garantias sobre independência entre A, B e C, permitindo que o compilador
+gere um código mais próximo do que ele consegue gerar para as matrizes 2D
+estáticas.
+
+Portanto, a notação com `[]` não é só mais rápida. Nesse caso, ela apenas
+descreve melhor o problema para o compilador: matrizes separadas, dimensões fixas,
+stride conhecido e acesso sequencial. Com essas informações, o -O3 consegue
+combinar vetorização com melhor localidade de cache, e é essa combinação que
+explica o salto grande de desempenho.
 
 ---
 
