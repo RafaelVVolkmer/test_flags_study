@@ -449,25 +449,58 @@ Assim, mantém-se a flexibilidade de ponteiros, mas devolve ao compilador as inf
 
 A versão B fica muito mais rápida com `-O3` porque o GCC consegue entender o acesso como um ninho de loops regular sobre matrizes 2D estáticas. Isso libera duas otimizações centrais:
 
+### Versão A - Alocação Dinâmic
+
 ```mermaid
 flowchart TD
-    A["Versão B: matrizes com notação []"] --> B["GCC consegue provar acesso 2D regular"]
-    B --> C["-O3 libera otimizações agressivas de loop"]
+    A0["Versão A: matrizes dinâmicas"] --> A1["Endereços chegam por variáveis de ponteiro"]
+    A1 --> A2["O compilador sabe menos sobre forma, stride e aliasing"]
+    A2 --> A3["Possibilidade conservadora de sobreposição entre A, B e C"]
+    A3 --> A4["Análise de dependências mais fraca"]
 
-    C --> D["SIMD"]
-    D --> E["addsd → addpd"]
-    E --> F["1 double por instrução → 2 doubles por instrução"]
+    A4 --> A5["-O3 ainda tenta otimizar"]
+    A5 --> A6["Algumas melhorias locais são possíveis"]
+    A6 --> A7["Mas o loop continua mais difícil de transformar agressivamente"]
 
-    C --> G["Locality"]
-    G --> H["Ordem lógica original: rep → i → j"]
-    H --> I["Ordem efetiva otimizada: i → rep → j"]
-    I --> J["Mesma faixa da linha é reutilizada ainda quente em cache"]
+    A5 --> A8["Vetorização limitada ou menos limpa"]
+    A8 --> A9["Menor garantia de acesso regular e independente"]
 
-    F --> K["Menos instruções escalares no loop quente"]
-    J --> K
-    K --> L["Tempo cai muito em -O3"]
+    A5 --> A10["Menor liberdade para reordenar loops"]
+    A10 --> A11["Ordem efetiva permanece mais próxima de: rep -> i -> j"]
+    A11 --> A12["A matriz inteira tende a ser varrida repetidas vezes"]
+
+    A9 --> A13["Menor ganho SIMD"]
+    A12 --> A14["Mais pressão em cache e memória"]
+    A13 --> A15["Tempo melhora pouco ou não acompanha a versão B"]
+    A14 --> A15
 ```
 
+### Versão B - Alocação Estática
+
+```mermaid
+flowchart TD
+    B0["Versão B: matrizes estáticas"] --> B1["Forma da matriz conhecida no código"]
+    B1 --> B2["Stride regular entre linhas e colunas"]
+    B2 --> B3["GCC consegue modelar o acesso como matriz 2D contígua"]
+    B3 --> B4["Análise de dependências mais forte"]
+
+    B4 --> B5["-O3 habilita otimizações agressivas de loop"]
+
+    B5 --> B6["Vetorização"]
+    B6 --> B7["Loop escalar: addsd"]
+    B7 --> B8["Loop vetorial: addpd"]
+    B8 --> B9["2 doubles processados por instrução SSE"]
+
+    B5 --> B10["Reordenação / transformação de loops"]
+    B10 --> B11["Ordem original: rep -> i -> j"]
+    B11 --> B12["Ordem efetiva otimizada: i -> rep -> j"]
+    B12 --> B13["A mesma faixa da linha é reutilizada ainda quente em cache"]
+
+    B9 --> B14["Menos instruções no loop quente"]
+    B13 --> B15["Menos tráfego efetivo de memória"]
+    B14 --> B16["Tempo cai muito com -O3"]
+    B15 --> B16
+```
 A versão A por ponteiros pode empatar em `-O1` porque quase nada agressivo é feito.Em `-O3`, porém, o compilador só aplica as transformações grandes quando consegue provar que são seguras. A notação `[]`, nesse caso, não é “mais rápida”; ela simplesmente descreve melhor o programa para o otimizador.
 
 ---
