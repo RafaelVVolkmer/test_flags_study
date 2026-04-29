@@ -1,6 +1,6 @@
-Command: stdbuf -o0 -e0 ./bins/matrix_o3.o > >(tee stdout) 2> >(tee stderr >&2)
+Command: stdbuf -o0 -e0 ./bins/matrix_dynamic_o1.o > >(tee stdout) 2> >(tee stderr >&2)
 
-# stdout/stderr report: matrix_o3.o
+# stdout/stderr report: matrix_dynamic_o1.o
 
 ## STDOUT
 
@@ -18,7 +18,7 @@ Intervalo 6 -- [6000 - 7000)
 Intervalo 7 -- [7000 - 8000)
 Intervalo 8 -- [8000 - 9000)
 Intervalo 9 -- [9000 - 10000)
-Tempo gasto na execucao 0.404796 segundos
+Tempo gasto na execucao 6.122595 segundos
 Digite o número desejados de threads a serem criadas (digite 0 para sair):
 --> ```
 

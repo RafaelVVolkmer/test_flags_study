@@ -1,7 +1,7 @@
-; Command: objdump -d -M intel --demangle ./bins/matrix_o3.o
+; Command: objdump -d -M intel --demangle ./bins/matrix_static_o3.o
 
 
-./bins/matrix_o3.o:     file format elf64-x86-64
+./bins/matrix_static_o3.o:     file format elf64-x86-64
 
 
 Disassembly of section .init:
