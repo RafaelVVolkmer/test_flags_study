@@ -449,14 +449,23 @@ Assim, mantém-se a flexibilidade de ponteiros, mas devolve ao compilador as inf
 
 A versão B fica muito mais rápida com `-O3` porque o GCC consegue entender o acesso como um ninho de loops regular sobre matrizes 2D estáticas. Isso libera duas otimizações centrais:
 
-```text
-1. SIMD:
-   addsd  -> addpd
-   1 double/instrução -> 2 doubles/instrução
+```mermaid
+flowchart TD
+    A["Versão B: matrizes com notação []"] --> B["GCC consegue provar acesso 2D regular"]
+    B --> C["-O3 libera otimizações agressivas de loop"]
 
-2. Locality:
-   rep -> i -> j
-   vira, efetivamente, i -> rep -> j
+    C --> D["SIMD"]
+    D --> E["addsd → addpd"]
+    E --> F["1 double por instrução → 2 doubles por instrução"]
+
+    C --> G["Locality"]
+    G --> H["Ordem lógica original: rep → i → j"]
+    H --> I["Ordem efetiva otimizada: i → rep → j"]
+    I --> J["Mesma faixa da linha é reutilizada ainda quente em cache"]
+
+    F --> K["Menos instruções escalares no loop quente"]
+    J --> K
+    K --> L["Tempo cai muito em -O3"]
 ```
 
 A versão A por ponteiros pode empatar em `-O1` porque quase nada agressivo é feito.Em `-O3`, porém, o compilador só aplica as transformações grandes quando consegue provar que são seguras. A notação `[]`, nesse caso, não é “mais rápida”; ela simplesmente descreve melhor o programa para o otimizador.
